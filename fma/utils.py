@@ -1,6 +1,7 @@
-import dotenv
-import pydot
-import requests
+#import dotenv
+#import pydot
+#import requests
+
 import numpy as np
 import pandas as pd
 import ctypes
@@ -17,7 +18,7 @@ NB_AUDIO_SAMPLES = 1321967
 SAMPLING_RATE = 44100
 
 # Load the environment from the .env file.
-dotenv.load_dotenv(dotenv.find_dotenv())
+#dotenv.load_dotenv(dotenv.find_dotenv())
 
 
 class FreeMusicArchive:
@@ -313,8 +314,7 @@ def build_sample_loader(audio_dir, Y, loader):
             self.batch_rearmost = sharedctypes.RawValue(ctypes.c_int, -1)
             self.condition = multiprocessing.Condition(lock=self.lock2)
 
-            data = sharedctypes.RawArray(ctypes.c_int, tids.data)
-            self.tids = np.ctypeslib.as_array(data)
+            self.tids = tids.to_numpy()
 
             self.batch_size = batch_size
             self.loader = loader
@@ -346,6 +346,7 @@ def build_sample_loader(audio_dir, Y, loader):
             for tid in tids:
                 try:
                     audio_path = get_audio_path(audio_dir, tid)
+                    audio_path = audio_path.replace("\\", "/")
                     self.X[batch_size] = self.loader.load(audio_path)
                     self.Y[batch_size] = Y.loc[tid]
                     batch_size += 1
