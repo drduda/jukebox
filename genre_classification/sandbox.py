@@ -45,7 +45,8 @@ labels_onehot = LabelBinarizer().fit_transform(tracks['track', 'genre_top'])
 labels_onehot = pd.DataFrame(labels_onehot, index=tracks.index)
 
 # Load raw audio
-loader = utils.AudioreadLoader(sampling_rate=2000)
+#todo what about sampling rate
+loader = utils.LibrosaLoader(sampling_rate=22100)
 SampleLoader = utils.build_sample_loader(AUDIO_DIR, labels_onehot, loader)
 print('Dimensionality: {}'.format(loader.shape))
 train_loader = SampleLoader(train, batch_size=64)
