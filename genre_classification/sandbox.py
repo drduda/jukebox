@@ -30,6 +30,9 @@ from jukebox.make_models import make_model
 import fire
 import torch
 
+from jukebox.prior.conditioners import SimpleEmbedding
+from jukebox.transformer.transformer import Transformer
+
 AUDIO_DIR = "data/fma_small"
 
 def run(model, **kwargs):
@@ -70,13 +73,31 @@ def run(model, **kwargs):
     # 8192 context codebooks/(44100 sample rate/128 top_raw_tokens) = 24sec
 
     # Reshape input
-    input = np.expand_dims(input, axis=-1)
+    input = torch.Tensor(np.expand_dims(input, axis=-1)).cuda()
     # Get codebooks
     zs = priors[-1].encode(input, start_level=0, end_level=len(priors), bs_chunks=input.shape[0])
 
-    # finetune the top prior (priors[-1]) for classification
+    codebook_amount = 2048
+    transformer_size = 2048
+    context_size = 8192
 
-    priors[-1].train()
+
+    top_level_codebooks = zs[2]
+    if context_size < top_level_codebooks.shape[1]:
+        # Get only so many codebooks which fit in transformer
+        top_level_codebooks[:,:-context_size]
+
+    # Get embeddings
+    #todo what is init_scale
+    embedding_layer = SimpleEmbedding(codebook_amount, transformer_size, init_scale=1).cuda()
+    embeddings = embedding_layer(top_level_codebooks)
+
+    #todo positional embeddings
+
+    # Go through transformer
+    #todo what is n_depth
+    transformer = Transformer(n_in=transformer_size, n_ctx=context_size, n_head=2, blocks=32, n_depth=5).cuda()
+    output = transformer.forward(embeddings, None, fp16_out=True, fp16=True)
 
     print("done")
 
