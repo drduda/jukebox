@@ -32,6 +32,7 @@ import torch
 
 from jukebox.prior.conditioners import SimpleEmbedding
 from jukebox.transformer.transformer import Transformer
+from jukebox.prior.autoregressive import PositionEmbedding
 
 AUDIO_DIR = "data/fma_small"
 
@@ -88,12 +89,17 @@ def run(model, **kwargs):
         # Get only so many codebooks which fit in transformer
         top_level_codebooks[:,:-context_size]
 
+    codebook_amount = top_level_codebooks.shape[1]
+
     # Get embeddings
     #todo what is init_scale
-    embedding_layer = SimpleEmbedding(codebook_amount, transformer_size, init_scale=1).cuda()
+    embedding_layer = SimpleEmbedding(context_size, transformer_size, init_scale=1).cuda()
     embeddings = embedding_layer(top_level_codebooks)
 
-    #todo positional embeddings
+    # Get positional embeddings
+    #todo again init_scale
+    pos_emb = PositionEmbedding(input_shape=context_size, width=transformer_size, init_scale=1).cuda()
+    embeddings += pos_emb()[:codebook_amount, :]
 
     # Go through transformer
     #todo what is n_depth
