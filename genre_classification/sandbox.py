@@ -68,14 +68,15 @@ def run(model, **kwargs):
     device = torch.device("cuda")
     vqvae, priors = make_model(model, device, hps)
 
+    del priors
+
     # Top raw to tokens is the compressing rate
-    top_raw_to_tokens = priors[-1].raw_to_tokens
-    # 8192 context codebooks/(44100 sample rate/128 top_raw_tokens) = 24sec
+    # 8192 context codebooks/(44100 sample rate/128 compression_rate(raw_to_tokens) = 24sec
 
     # Reshape input
     input = torch.Tensor(np.expand_dims(input, axis=-1)).cuda()
     # Get codebooks
-    zs = priors[-1].encode(input, start_level=0, end_level=len(priors), bs_chunks=input.shape[0])
+    zs = vqvae.encode(input, start_level=0, end_level=3, bs_chunks=input.shape[0])
 
     codebook_amount = 2048
     transformer_size = 2048
