@@ -52,7 +52,8 @@ def run(model, **kwargs):
 
 
     # Get labels
-    labels_onehot = LabelBinarizer().fit_transform(tracks['track', 'genre_top'])
+    labels_onehot = tracks['track', 'genre_top'].astype('category')
+    labels_onehot = labels_onehot.cat.codes
     labels_onehot = pd.DataFrame(labels_onehot, index=tracks.index)
 
     # Load raw audio
@@ -61,6 +62,9 @@ def run(model, **kwargs):
     SampleLoader = utils.build_sample_loader(AUDIO_DIR, labels_onehot, loader)
     print('Dimensionality: {}'.format(loader.shape))
     train_loader = SampleLoader(train, batch_size=5)
+
+    optimizer = torch.optim.Adam
+
     input, labels = train_loader.__next__()
 
     # Get models
@@ -101,11 +105,27 @@ def run(model, **kwargs):
     pos_emb = PositionEmbedding(input_shape=context_size, width=transformer_size, init_scale=1).cuda()
     embeddings += pos_emb()[:codebook_amount, :]
 
-    # Go through transformer
+    # Define model
     #todo what is n_depth
     transformer = Transformer(n_in=transformer_size, n_ctx=context_size, n_head=2, blocks=32, n_depth=5).cuda()
-    output = transformer.forward(embeddings, None, fp16_out=True, fp16=True)
+    classifier = torch.nn.Sequential(
+        torch.nn.Linear(transformer_size, 300),
+        torch.nn.ReLU(),
+        torch.nn.Linear(300, 8)).cuda()
 
+
+    optimizer = torch.optim.Adam(transformer.parameters())
+    loss_fn = torch.nn.CrossEntropyLoss()
+
+    # Train
+    output = transformer.forward(embeddings, None, fp16_out=True, fp16=True)
+    output = classifier(output[:, 0, :])
+
+    loss = loss_fn(output, labels)
+
+    optimizer.zero_grad()
+    loss.backwards()
+    optimizer.step()
     print("done")
 
 
