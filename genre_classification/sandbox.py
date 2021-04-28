@@ -38,7 +38,7 @@ AUDIO_DIR = "data/fma_small"
 codebook_amount = 2048
 transformer_size = 2048
 context_size = 8192
-batch_size = 64
+batch_size = 2
 
 class GenreClassifier(torch.nn.Module):
     def __init__(self, embedding_layer, pos_embedding, transformer, classifier):
@@ -95,28 +95,21 @@ def run(model, **kwargs):
     device = torch.device("cuda")
     vqvae, priors = make_model(model, device, hps)
 
+    top_prior = priors.pop(-1)
+    del priors
+
+    transformer = top_prior.prior.transformer
+    pos_emb = top_prior.prior.pos_emb
+    embedding_layer = top_prior.prior.x_emb
     # Top raw to tokens is the compressing rate
     # 8192 context codebooks/(44100 sample rate/128 compression_rate(raw_to_tokens) = 24sec
 
-
-
-    # Get embeddings
-    #todo what is init_scale
-    embedding_layer = SimpleEmbedding(context_size, transformer_size, init_scale=1).cuda()
-
-    # Get positional embeddings
-    #todo again init_scale
-    pos_emb = PositionEmbedding(input_shape=context_size, width=transformer_size, init_scale=1).cuda()
-
-    # Define model
-    #todo what is n_depth
-    transformer = Transformer(n_in=transformer_size, n_ctx=context_size, n_head=2, blocks=32, n_depth=5).cuda()
     classifier = torch.nn.Sequential(
         torch.nn.Linear(transformer_size, 300),
         torch.nn.ReLU(),
         torch.nn.Linear(300, 8)).half().cuda()
 
-    model = GenreClassifier(embedding_layer, pos_emb, transformer, classifier)
+    model = GenreClassifier(embedding_layer, pos_emb, transformer, classifier).cuda()
 
     optimizer = torch.optim.Adam(model.parameters())
     loss_fn = torch.nn.CrossEntropyLoss()
