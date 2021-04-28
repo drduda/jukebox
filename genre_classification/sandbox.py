@@ -35,6 +35,32 @@ from jukebox.transformer.transformer import Transformer
 from jukebox.prior.autoregressive import PositionEmbedding
 
 AUDIO_DIR = "data/fma_small"
+codebook_amount = 2048
+transformer_size = 2048
+context_size = 8192
+batch_size = 64
+
+class GenreClassifier(torch.nn.Module):
+    def __init__(self, embedding_layer, pos_embedding, transformer, classifier):
+        super(GenreClassifier, self).__init__()
+
+        self.embedding_layer = embedding_layer
+        #todo pos_embedding requires_grad = False
+        self.pos_embedding = pos_embedding
+
+        self.transformer = transformer
+        self.classifier = classifier
+
+
+    def forward(self, x):
+
+        embeddings = self.embedding_layer(x)
+        actual_length = embeddings.shape[1]
+        embeddings += self.pos_embedding()[:actual_length, :]
+        # Trai
+        output = self.transformer.forward(embeddings, None, fp16_out=True, fp16=True)
+        output = self.classifier(output[:, 0, :])
+        return output
 
 def run(model, **kwargs):
     # Load metadata
@@ -61,11 +87,7 @@ def run(model, **kwargs):
     loader = utils.LibrosaLoader(sampling_rate=22100)
     SampleLoader = utils.build_sample_loader(AUDIO_DIR, labels_onehot, loader)
     print('Dimensionality: {}'.format(loader.shape))
-    train_loader = SampleLoader(train, batch_size=5)
-
-    optimizer = torch.optim.Adam
-
-    input, labels = train_loader.__next__()
+    train_loader = SampleLoader(train, batch_size=batch_size)
 
     # Get models
     hps = Hyperparams(**kwargs)
@@ -73,37 +95,18 @@ def run(model, **kwargs):
     device = torch.device("cuda")
     vqvae, priors = make_model(model, device, hps)
 
-    del priors
-
     # Top raw to tokens is the compressing rate
     # 8192 context codebooks/(44100 sample rate/128 compression_rate(raw_to_tokens) = 24sec
 
-    # Reshape input
-    input = torch.Tensor(np.expand_dims(input, axis=-1)).cuda()
-    # Get codebooks
-    zs = vqvae.encode(input, start_level=0, end_level=3, bs_chunks=input.shape[0])
 
-    codebook_amount = 2048
-    transformer_size = 2048
-    context_size = 8192
-
-
-    top_level_codebooks = zs[2]
-    if context_size < top_level_codebooks.shape[1]:
-        # Get only so many codebooks which fit in transformer
-        top_level_codebooks[:,:-context_size]
-
-    codebook_amount = top_level_codebooks.shape[1]
 
     # Get embeddings
     #todo what is init_scale
     embedding_layer = SimpleEmbedding(context_size, transformer_size, init_scale=1).cuda()
-    embeddings = embedding_layer(top_level_codebooks)
 
     # Get positional embeddings
     #todo again init_scale
     pos_emb = PositionEmbedding(input_shape=context_size, width=transformer_size, init_scale=1).cuda()
-    embeddings += pos_emb()[:codebook_amount, :]
 
     # Define model
     #todo what is n_depth
@@ -113,21 +116,32 @@ def run(model, **kwargs):
         torch.nn.ReLU(),
         torch.nn.Linear(300, 8)).half().cuda()
 
+    model = GenreClassifier(embedding_layer, pos_emb, transformer, classifier)
 
-    optimizer = torch.optim.Adam(transformer.parameters())
+    optimizer = torch.optim.Adam(model.parameters())
     loss_fn = torch.nn.CrossEntropyLoss()
 
-    # Train
-    output = transformer.forward(embeddings, None, fp16_out=True, fp16=True)
-    output = classifier(output[:, 0, :])
+    for input, labels in train_loader:
+        # Reshape input
+        input = torch.Tensor(np.expand_dims(input, axis=-1)).cuda()
+        # Get codebooks
+        zs = vqvae.encode(input, start_level=0, end_level=3, bs_chunks=input.shape[0])
 
-    loss = loss_fn(output, labels)
+        top_level_codebooks = zs[2]
+        if context_size < top_level_codebooks.shape[1]:
+            raise NotImplementedError("Cannot handle different size so far")
 
-    optimizer.zero_grad()
-    loss.backwards()
-    optimizer.step()
-    print("done")
 
+        labels = torch.tensor(labels, dtype=torch.float16).cuda()
+        output = model(top_level_codebooks)
+
+        loss = loss_fn(output, labels)
+
+        optimizer.zero_grad()
+        loss.backwards()
+        optimizer.step()
+
+        print("done")
 
 if __name__ == '__main__':
     fire.Fire(run)
