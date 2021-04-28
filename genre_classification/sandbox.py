@@ -111,7 +111,7 @@ def run(model, **kwargs):
     classifier = torch.nn.Sequential(
         torch.nn.Linear(transformer_size, 300),
         torch.nn.ReLU(),
-        torch.nn.Linear(300, 8)).cuda()
+        torch.nn.Linear(300, 8)).half().cuda()
 
 
     optimizer = torch.optim.Adam(transformer.parameters())
