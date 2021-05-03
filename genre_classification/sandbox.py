@@ -38,15 +38,22 @@ from jukebox.prior.autoregressive import PositionEmbedding
 torch.backends.cudnn.benchmark = True
 
 AUDIO_DIR = "data/fma_small"
-batch_size = 2
+batch_size = 8
 
 class GenreClassifier(torch.nn.Module):
-    def __init__(self, embedding_layer, pos_embedding, transformer, classifier):
+    def __init__(self, embedding_layer, pos_embedding, transformer, classifier, unfreeze_from_block=71):
         super(GenreClassifier, self).__init__()
 
         self.embedding_layer = embedding_layer
         #todo pos_embedding requires_grad = False
         self.pos_embedding = pos_embedding
+
+        unfreeze = False
+        # Each block is mode of 12 layers
+        for name, parameters in transformer.named_parameters():
+            if str(unfreeze_from_block) in name or unfreeze:
+                unfreeze = True
+                parameters.requires_grad = True
 
         self.transformer = transformer
         self.classifier = classifier
