@@ -82,21 +82,20 @@ def run(model, **kwargs):
     labels_onehot = labels_onehot.cat.codes
     labels_onehot = pd.DataFrame(labels_onehot, index=tracks.index)
 
-    # Load raw audio
-    #todo what about sampling rate
-    loader = utils.LibrosaLoader(sampling_rate=22100)
-    SampleLoader = utils.build_sample_loader(AUDIO_DIR, labels_onehot, loader)
-    print('Dimensionality: {}'.format(loader.shape))
-    train_loader = SampleLoader(train, batch_size=batch_size)
-
     # Get models
     hps = Hyperparams(**kwargs)
-    #sample_hps = Hyperparams(dict(mode=mode, codes_file=codes_file, audio_file=audio_file, prompt_length_in_seconds=prompt_length_in_seconds))
+    # sample_hps = Hyperparams(dict(mode=mode, codes_file=codes_file, audio_file=audio_file, prompt_length_in_seconds=prompt_length_in_seconds))
     device = torch.device("cuda")
     vqvae, priors = make_model(model, device, hps)
 
     top_prior = priors.pop(-1)
     del priors
+
+    # Load raw audio
+    loader = utils.LibrosaLoader(sampling_rate=hps.sr)
+    SampleLoader = utils.build_sample_loader(AUDIO_DIR, labels_onehot, loader)
+    print('Dimensionality: {}'.format(loader.shape))
+    train_loader = SampleLoader(train, batch_size=batch_size)
 
     transformer = top_prior.prior.transformer
     pos_emb = top_prior.prior.pos_emb
