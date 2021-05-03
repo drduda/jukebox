@@ -38,7 +38,7 @@ from jukebox.prior.autoregressive import PositionEmbedding
 torch.backends.cudnn.benchmark = True
 
 AUDIO_DIR = "data/fma_small"
-batch_size = 8
+batch_size = 12
 
 class GenreClassifier(torch.nn.Module):
     def __init__(self, embedding_layer, pos_embedding, transformer, classifier, unfreeze_from_block=71):
@@ -124,10 +124,10 @@ def run(model, **kwargs):
         # Reshape input
         input = torch.Tensor(np.expand_dims(input, axis=-1)).cuda()
         # Get codebooks
-        zs = vqvae.encode(input, start_level=0, end_level=3, bs_chunks=input.shape[0])
+        zs = vqvae.encode(input, start_level=2, end_level=3, bs_chunks=input.shape[0])
 
         # Take only top level
-        top_level_codebooks = zs[2]
+        top_level_codebooks = zs[0]
         if transformer.n_ctx > top_level_codebooks.shape[1]:
             raise NotImplementedError("Cannot handle shorter song length so far")
 
