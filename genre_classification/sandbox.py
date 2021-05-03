@@ -127,13 +127,14 @@ def run(model, **kwargs):
         # Take cutout of song so that it can fit inside the transformer at once
         top_level_codebooks = top_level_codebooks[:, :transformer.n_ctx]
 
-        labels = torch.tensor(labels, dtype=torch.long, device=device)
+        #todo these are just dummy labels, actual labels have pandas related bugs
+        labels = torch.empty(batch_size, dtype=torch.long).random_(8).cuda()
 
         optimizer.zero_grad()
         #todo half precision training
         output = model(top_level_codebooks)
         loss = loss_fn(output, labels)
-        loss.backwards()
+        loss.backward()
         optimizer.step()
 
         print("done")
