@@ -34,10 +34,10 @@ from jukebox.prior.conditioners import SimpleEmbedding
 from jukebox.transformer.transformer import Transformer
 from jukebox.prior.autoregressive import PositionEmbedding
 
+# MIGHT MAKE TRAINING FASTER ACCORDING TO: https://github.com/pytorch/pytorch/issues/46377
+torch.backends.cudnn.benchmark = True
+
 AUDIO_DIR = "data/fma_small"
-codebook_amount = 2048
-transformer_size = 2048
-context_size = 8192
 batch_size = 2
 
 class GenreClassifier(torch.nn.Module):
@@ -56,7 +56,7 @@ class GenreClassifier(torch.nn.Module):
 
         embeddings = self.embedding_layer(x)
         actual_length = embeddings.shape[1]
-        embeddings += self.pos_embedding()[:actual_length, :]
+        embeddings += self.pos_embedding()
         # Trai
         output = self.transformer.forward(embeddings, None, fp16_out=True, fp16=True)
         output = self.classifier(output[:, 0, :])
@@ -104,7 +104,7 @@ def run(model, **kwargs):
     # 8192 context codebooks/(44100 sample rate/128 compression_rate(raw_to_tokens) = 24sec
 
     classifier = torch.nn.Sequential(
-        torch.nn.Linear(transformer_size, 300),
+        torch.nn.Linear(transformer.n_in, 300),
         torch.nn.ReLU(),
         torch.nn.Linear(300, 8)).half().cuda()
 
@@ -119,17 +119,20 @@ def run(model, **kwargs):
         # Get codebooks
         zs = vqvae.encode(input, start_level=0, end_level=3, bs_chunks=input.shape[0])
 
+        # Take only top level
         top_level_codebooks = zs[2]
-        if context_size < top_level_codebooks.shape[1]:
-            raise NotImplementedError("Cannot handle different size so far")
+        if transformer.n_ctx > top_level_codebooks.shape[1]:
+            raise NotImplementedError("Cannot handle shorter song length so far")
 
+        # Take cutout of song so that it can fit inside the transformer at once
+        top_level_codebooks = top_level_codebooks[:, :transformer.n_ctx]
 
-        labels = torch.tensor(labels, dtype=torch.float16).cuda()
-        output = model(top_level_codebooks)
-
-        loss = loss_fn(output, labels)
+        labels = torch.tensor(labels, dtype=torch.long, device=device)
 
         optimizer.zero_grad()
+        #todo half precision training
+        output = model(top_level_codebooks)
+        loss = loss_fn(output, labels)
         loss.backwards()
         optimizer.step()
 
