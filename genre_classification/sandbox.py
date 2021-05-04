@@ -85,6 +85,7 @@ def run(model, **kwargs):
 
 
     # Get labels
+    #todo fma github page says there are only 8 top layer, we have 16 why??
     labels_onehot = tracks['track', 'genre_top'].astype('category')
     labels_onehot = labels_onehot.cat.codes
     labels_onehot = pd.DataFrame(labels_onehot, index=tracks.index)
@@ -113,7 +114,7 @@ def run(model, **kwargs):
     classifier = torch.nn.Sequential(
         torch.nn.Linear(transformer.n_in, 300),
         torch.nn.ReLU(),
-        torch.nn.Linear(300, 8)).half().cuda()
+        torch.nn.Linear(300, 16)).half().cuda()
 
     model = GenreClassifier(embedding_layer, pos_emb, transformer, classifier).cuda()
 
@@ -134,8 +135,7 @@ def run(model, **kwargs):
         # Take cutout of song so that it can fit inside the transformer at once
         top_level_codebooks = top_level_codebooks[:, :transformer.n_ctx]
 
-        #todo these are just dummy labels, actual labels have pandas related bugs
-        labels = torch.empty(batch_size, dtype=torch.long).random_(8).cuda()
+        labels = torch.squeeze(torch.tensor(labels, dtype=torch.long, device=device))
 
         optimizer.zero_grad()
         #todo half precision training
