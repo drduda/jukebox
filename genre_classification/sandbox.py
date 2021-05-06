@@ -29,16 +29,18 @@ from jukebox.hparams import Hyperparams
 from jukebox.make_models import make_model
 import fire
 import torch
+import tqdm
 
 from jukebox.prior.conditioners import SimpleEmbedding
 from jukebox.transformer.transformer import Transformer
 from jukebox.prior.autoregressive import PositionEmbedding
 
 # MIGHT MAKE TRAINING FASTER ACCORDING TO: https://github.com/pytorch/pytorch/issues/46377
-torch.backends.cudnn.benchmark = True
+#torch.backends.cudnn.benchmark = True
 
 AUDIO_DIR = "data/fma_small"
 batch_size = 12
+epochs = 2
 
 class GenreClassifier(torch.nn.Module):
     def __init__(self, embedding_layer, pos_embedding, transformer, classifier, unfreeze_from_block=71):
@@ -65,9 +67,11 @@ class GenreClassifier(torch.nn.Module):
         actual_length = embeddings.shape[1]
         embeddings += self.pos_embedding()
         # Trai
-        output = self.transformer.forward(embeddings, None, fp16_out=True, fp16=True)
+        output = self.transformer.forward(embeddings, None)
         output = self.classifier(output[:, 0, :])
         return output
+
+
 
 def run(model, **kwargs):
     # Load metadata
@@ -85,7 +89,7 @@ def run(model, **kwargs):
 
 
     # Get labels
-    #todo fma github page says there are only 8 top layer, we have 16 why??
+    #todo fma github page says there are only 8 top genres, we have 16 why??
     labels_onehot = tracks['track', 'genre_top'].astype('category')
     labels_onehot = labels_onehot.cat.codes
     labels_onehot = pd.DataFrame(labels_onehot, index=tracks.index)
@@ -104,6 +108,7 @@ def run(model, **kwargs):
     SampleLoader = utils.build_sample_loader(AUDIO_DIR, labels_onehot, loader)
     print('Dimensionality: {}'.format(loader.shape))
     train_loader = SampleLoader(train, batch_size=batch_size)
+    val_loader = SampleLoader(val, batch_size=batch_size)
 
     transformer = top_prior.prior.transformer
     pos_emb = top_prior.prior.pos_emb
@@ -114,37 +119,99 @@ def run(model, **kwargs):
     classifier = torch.nn.Sequential(
         torch.nn.Linear(transformer.n_in, 300),
         torch.nn.ReLU(),
-        torch.nn.Linear(300, 16)).half().cuda()
+        torch.nn.Linear(300, 16))
 
-    model = GenreClassifier(embedding_layer, pos_emb, transformer, classifier).cuda()
+    model = GenreClassifier(embedding_layer, pos_emb, transformer, classifier).to(device)
 
     optimizer = torch.optim.Adam(model.parameters())
     loss_fn = torch.nn.CrossEntropyLoss()
 
-    for input, labels in train_loader:
-        # Reshape input
-        input = torch.Tensor(np.expand_dims(input, axis=-1)).cuda()
-        # Get codebooks
-        zs = vqvae.encode(input, start_level=2, end_level=3, bs_chunks=input.shape[0])
+    # Metrics
+    train_loss = []
+    val_loss = []
+    train_accuracy = []
+    val_accuracy = []
 
-        # Take only top level
-        top_level_codebooks = zs[0]
-        if transformer.n_ctx > top_level_codebooks.shape[1]:
-            raise NotImplementedError("Cannot handle shorter song length so far")
+    for e in tqdm.tqdm(range(epochs)):
+        print(e)
 
-        # Take cutout of song so that it can fit inside the transformer at once
-        top_level_codebooks = top_level_codebooks[:, :transformer.n_ctx]
+        epoch_loss = []
+        epoch_accuracy = []
 
-        labels = torch.squeeze(torch.tensor(labels, dtype=torch.long, device=device))
+        for input, labels in train_loader:
+            print(".", end="")
 
-        optimizer.zero_grad()
-        #todo half precision training
-        output = model(top_level_codebooks)
-        loss = loss_fn(output, labels)
-        loss.backward()
-        optimizer.step()
+            # Reshape input
+            input = torch.Tensor(np.expand_dims(input, axis=-1)).to(device)
+            # Get codebooks
+            zs = vqvae.encode(input, start_level=2, end_level=3, bs_chunks=input.shape[0])
 
-        print("done")
+            # Take only top level
+            top_level_codebooks = zs[0]
+            if transformer.n_ctx > top_level_codebooks.shape[1]:
+                raise NotImplementedError("Cannot handle shorter song length so far")
+
+            # Take cutout of song so that it can fit inside the transformer at once
+            top_level_codebooks = top_level_codebooks[:, :transformer.n_ctx]
+
+            labels = torch.squeeze(torch.tensor(labels, dtype=torch.long, device=device))
+
+            optimizer.zero_grad()
+            #todo half precision training
+            output = model(top_level_codebooks)
+            loss = loss_fn(output, labels)
+
+            # Metrics
+            epoch_loss.append(loss)
+            epoch_accuracy.append(accuracy(output, labels))
+
+            loss.backward()
+            optimizer.step()
+
+        train_loss.append(torch.mean(epoch_loss))
+        train_accuracy.append(torch.mean(epoch_accuracy))
+
+        epoch_loss = []
+        epoch_accuracy = []
+
+        for input, labels in val_loader:
+            with torch.no_grad():
+
+
+                # Reshape input
+                input = torch.Tensor(np.expand_dims(input, axis=-1)).to(device)
+                # Get codebooks
+                zs = vqvae.encode(input, start_level=2, end_level=3, bs_chunks=input.shape[0])
+
+                # Take only top level
+                top_level_codebooks = zs[0]
+                if transformer.n_ctx > top_level_codebooks.shape[1]:
+                    raise NotImplementedError("Cannot handle shorter song length so far")
+
+                # Take cutout of song so that it can fit inside the transformer at once
+                top_level_codebooks = top_level_codebooks[:, :transformer.n_ctx]
+
+                labels = torch.squeeze(torch.tensor(labels, dtype=torch.long, device=device))
+
+                output = model(top_level_codebooks)
+                loss = loss_fn(output, labels)
+
+                # Metrics
+                epoch_loss.append(loss)
+                epoch_accuracy.append(accuracy(output, labels))
+
+        val_loss.append(epoch_loss)
+        val_accuracy.append((epoch_accuracy))
+
+
+def accuracy(output, labels):
+    correct = 0
+    total = 0
+
+    _, predicted = torch.max(output.data, 1)
+    total += labels.size(0)
+    correct += (predicted == labels).sum().item()
+    return correct/total
 
 if __name__ == '__main__':
     fire.Fire(run)
