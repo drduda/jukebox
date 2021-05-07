@@ -1,6 +1,3 @@
-import dotenv
-import pydot
-import requests
 import numpy as np
 import pandas as pd
 import ctypes
@@ -12,12 +9,8 @@ import ast
 
 
 # Number of samples per 30s audio clip.
-# TODO: fix dataset to be constant.
 NB_AUDIO_SAMPLES = 1321967
 SAMPLING_RATE = 44100
-
-# Load the environment from the .env file.
-dotenv.load_dotenv(dotenv.find_dotenv())
 
 
 class FreeMusicArchive:
@@ -313,8 +306,7 @@ def build_sample_loader(audio_dir, Y, loader):
             self.batch_rearmost = sharedctypes.RawValue(ctypes.c_int, -1)
             self.condition = multiprocessing.Condition(lock=self.lock2)
 
-            data = sharedctypes.RawArray(ctypes.c_int, tids.data)
-            self.tids = np.ctypeslib.as_array(data)
+            self.tids = tids.to_numpy()
 
             self.batch_size = batch_size
             self.loader = loader
@@ -322,44 +314,54 @@ def build_sample_loader(audio_dir, Y, loader):
             self.Y = np.empty((self.batch_size, Y.shape[1]), dtype=np.int)
 
         def __iter__(self):
+            self.idx = 0
             return self
 
+        def __len__(self):
+            return len(self.tids)//self.batch_size
+
         def __next__(self):
+            if len(self) < self.idx:
+                raise StopIteration
+            else:
+                self.idx += 1
 
-            with self.lock1:
-                if self.batch_foremost.value == 0:
-                    np.random.shuffle(self.tids)
+                with self.lock1:
+                    if self.batch_foremost.value == 0:
+                        np.random.shuffle(self.tids)
 
-                batch_current = self.batch_foremost.value
-                if self.batch_foremost.value + self.batch_size < self.tids.size:
-                    batch_size = self.batch_size
-                    self.batch_foremost.value += self.batch_size
-                else:
-                    batch_size = self.tids.size - self.batch_foremost.value
-                    self.batch_foremost.value = 0
+                    batch_current = self.batch_foremost.value
+                    if self.batch_foremost.value + self.batch_size < self.tids.size:
+                        batch_size = self.batch_size
+                        self.batch_foremost.value += self.batch_size
+                    else:
+                        batch_size = self.tids.size - self.batch_foremost.value
+                        self.batch_foremost.value = 0
 
-                # print(self.tids, self.batch_foremost.value, batch_current, self.tids[batch_current], batch_size)
-                # print('queue', self.tids[batch_current], batch_size)
-                tids = np.array(self.tids[batch_current:batch_current+batch_size])
+                    # print(self.tids, self.batch_foremost.value, batch_current, self.tids[batch_current], batch_size)
+                    # print('queue', self.tids[batch_current], batch_size)
+                    tids = np.array(self.tids[batch_current:batch_current+batch_size])
 
-            batch_size = 0
-            for tid in tids:
-                try:
-                    audio_path = get_audio_path(audio_dir, tid)
-                    self.X[batch_size] = self.loader.load(audio_path)
-                    self.Y[batch_size] = Y.loc[tid]
-                    batch_size += 1
-                except Exception as e:
-                    print("\nIgnoring " + audio_path +" (error: " + str(e) +").")
+                batch_size = 0
+                for tid in tids:
+                    try:
+                        audio_path = get_audio_path(audio_dir, tid)
+                        audio_path = audio_path.replace("\\", "/")
+                        self.X[batch_size] = self.loader.load(audio_path)
+                        self.Y[batch_size] = Y.loc[tid]
+                        batch_size += 1
+                    except Exception as e:
+                        pass
+                        #print("\nIgnoring " + audio_path +" (error: " + str(e) +").")
 
-            with self.lock2:
-                while (batch_current - self.batch_rearmost.value) % self.tids.size > self.batch_size:
-                    # print('wait', indices[0], batch_current, self.batch_rearmost.value)
-                    self.condition.wait()
-                self.condition.notify_all()
-                # print('yield', indices[0], batch_current, self.batch_rearmost.value)
-                self.batch_rearmost.value = batch_current
+                with self.lock2:
+                    while (batch_current - self.batch_rearmost.value) % self.tids.size > self.batch_size:
+                        # print('wait', indices[0], batch_current, self.batch_rearmost.value)
+                        self.condition.wait()
+                    self.condition.notify_all()
+                    # print('yield', indices[0], batch_current, self.batch_rearmost.value)
+                    self.batch_rearmost.value = batch_current
 
-                return self.X[:batch_size], self.Y[:batch_size]
+                    return self.X[:batch_size], self.Y[:batch_size]
 
     return SampleLoader
