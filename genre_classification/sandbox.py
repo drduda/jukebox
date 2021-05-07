@@ -40,7 +40,6 @@ from jukebox.prior.autoregressive import PositionEmbedding
 
 AUDIO_DIR = "data/fma_small"
 batch_size = 12
-epochs = 2
 
 class GenreClassifier(torch.nn.Module):
     def __init__(self, embedding_layer, pos_embedding, transformer, classifier, unfreeze_from_block=71):
@@ -132,8 +131,8 @@ def run(model, **kwargs):
     train_accuracy = []
     val_accuracy = []
 
-    for e in tqdm.tqdm(range(epochs)):
-        print(e)
+    print("Number of epochs {}".format(hps.epochs))
+    for e in tqdm.tqdm(range(hps.epochs)):
 
         epoch_loss = []
         epoch_accuracy = []
@@ -144,7 +143,8 @@ def run(model, **kwargs):
             # Reshape input
             input = torch.Tensor(np.expand_dims(input, axis=-1)).to(device)
             # Get codebooks
-            zs = vqvae.encode(input, start_level=2, end_level=3, bs_chunks=input.shape[0])
+            with torch.no_grad():
+                zs = vqvae.encode(input, start_level=2, end_level=3, bs_chunks=input.shape[0])
 
             # Take only top level
             top_level_codebooks = zs[0]
@@ -168,6 +168,7 @@ def run(model, **kwargs):
             loss.backward()
             optimizer.step()
 
+        print("Train accuracy is {}".format(torch.mean(epoch_accuracy)))
         train_loss.append(torch.mean(epoch_loss))
         train_accuracy.append(torch.mean(epoch_accuracy))
 
@@ -175,8 +176,8 @@ def run(model, **kwargs):
         epoch_accuracy = []
 
         for input, labels in val_loader:
+            print(".", end="")
             with torch.no_grad():
-
 
                 # Reshape input
                 input = torch.Tensor(np.expand_dims(input, axis=-1)).to(device)
@@ -200,8 +201,9 @@ def run(model, **kwargs):
                 epoch_loss.append(loss)
                 epoch_accuracy.append(accuracy(output, labels))
 
-        val_loss.append(epoch_loss)
-        val_accuracy.append((epoch_accuracy))
+        print("Test accuracy is {}".torch.mean(epoch_accuracy))
+        val_loss.append(torch.mean(epoch_loss))
+        val_accuracy.append(torch.mean(epoch_accuracy))
 
 
 def accuracy(output, labels):
