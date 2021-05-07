@@ -1,10 +1,16 @@
 import librosa
 import os
 
+from audioread import NoBackendError
+
+
 def convert(filename):
-    y, sr = librosa.load(filename, sr=SAMPLE_RATE)
-    os.remove(filename)
-    librosa.output.write_wav(filename.replace('mp3', 'wav'), y, sr)
+    try:
+        y, sr = librosa.load(filename, sr=SAMPLE_RATE)
+        os.remove(filename)
+        librosa.output.write_wav(filename.replace('mp3', 'wav'), y, sr)
+    except NoBackendError:
+        print("Couldn't convert {}".format(filename))
 
 DATA_PATH = "C:/Users/Marko/PycharmProjects/jukebox/data/fma_small"
 SAMPLE_RATE = 44100
