@@ -89,7 +89,7 @@ def run(model, **kwargs):
 
     # Get labels
     #todo fma github page says there are only 8 top genres, we have 16 why??
-    labels_onehot = tracks['track', 'genre_top'].astype('category')
+    labels_onehot = tracks['track', 'genre_top'].astype('category').cat.remove_unused_categories()
     labels_onehot = labels_onehot.cat.codes
     labels_onehot = pd.DataFrame(labels_onehot, index=tracks.index)
 
@@ -118,7 +118,7 @@ def run(model, **kwargs):
     classifier = torch.nn.Sequential(
         torch.nn.Linear(transformer.n_in, 300),
         torch.nn.ReLU(),
-        torch.nn.Linear(300, 16))
+        torch.nn.Linear(300, 8))
 
     model = GenreClassifier(embedding_layer, pos_emb, transformer, classifier).to(device)
 
@@ -204,7 +204,7 @@ def run(model, **kwargs):
                 epoch_accuracy.append(accuracy(output, labels))
 
         print("")
-        print("Test accuracy is {}".format(np.mean(epoch_accuracy)))
+        print("Validation accuracy is {}".format(np.mean(epoch_accuracy)))
         val_loss.append(np.mean(epoch_loss))
         val_accuracy.append(np.mean(epoch_accuracy))
 
