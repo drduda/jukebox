@@ -122,7 +122,7 @@ def run(model, **kwargs):
 
     model = GenreClassifier(embedding_layer, pos_emb, transformer, classifier).to(device)
 
-    optimizer = torch.optim.Adam(model.parameters())
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.0001, weight_decay=0.005)
     loss_fn = torch.nn.CrossEntropyLoss()
 
     # Metrics
@@ -132,7 +132,8 @@ def run(model, **kwargs):
     val_accuracy = []
 
     print("Number of epochs {}".format(hps.epochs))
-    for e in tqdm.tqdm(range(hps.epochs)):
+    for e in range(hps.epochs):
+        print("Epoch {} of {}".format(e, hps.epochs))
 
         epoch_loss = []
         epoch_accuracy = []
@@ -162,15 +163,16 @@ def run(model, **kwargs):
             loss = loss_fn(output, labels)
 
             # Metrics
-            epoch_loss.append(loss)
+            epoch_loss.append(loss.item())
             epoch_accuracy.append(accuracy(output, labels))
 
             loss.backward()
             optimizer.step()
 
-        print("Train accuracy is {}".format(torch.mean(epoch_accuracy)))
-        train_loss.append(torch.mean(epoch_loss))
-        train_accuracy.append(torch.mean(epoch_accuracy))
+        print("")
+        print("Train accuracy is {}".format(np.mean(epoch_accuracy)))
+        train_loss.append(np.mean(epoch_loss))
+        train_accuracy.append(np.mean(epoch_accuracy))
 
         epoch_loss = []
         epoch_accuracy = []
@@ -198,12 +200,13 @@ def run(model, **kwargs):
                 loss = loss_fn(output, labels)
 
                 # Metrics
-                epoch_loss.append(loss)
+                epoch_loss.append(loss.item())
                 epoch_accuracy.append(accuracy(output, labels))
 
-        print("Test accuracy is {}".torch.mean(epoch_accuracy))
-        val_loss.append(torch.mean(epoch_loss))
-        val_accuracy.append(torch.mean(epoch_accuracy))
+        print("")
+        print("Test accuracy is {}".format(np.mean(epoch_accuracy)))
+        val_loss.append(np.mean(epoch_loss))
+        val_accuracy.append(np.mean(epoch_accuracy))
 
 
 def accuracy(output, labels):
