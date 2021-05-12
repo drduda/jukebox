@@ -41,6 +41,7 @@ from jukebox.prior.autoregressive import PositionEmbedding
 AUDIO_DIR = "data/fma_small"
 batch_size = 12
 
+
 class GenreClassifier(torch.nn.Module):
     def __init__(self, embedding_layer, pos_embedding, transformer, classifier, unfreeze_from_block=71):
         super(GenreClassifier, self).__init__()
@@ -88,7 +89,6 @@ def run(model, **kwargs):
 
 
     # Get labels
-    #todo fma github page says there are only 8 top genres, we have 16 why??
     labels_onehot = tracks['track', 'genre_top'].astype('category').cat.remove_unused_categories()
     labels_onehot = labels_onehot.cat.codes
     labels_onehot = pd.DataFrame(labels_onehot, index=tracks.index)
@@ -123,6 +123,8 @@ def run(model, **kwargs):
     model = GenreClassifier(embedding_layer, pos_emb, transformer, classifier).to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=0.0001, weight_decay=0.005)
+    scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=0.0007, steps_per_epoch=len(train_loader),
+                                                    epochs=hps.epochs)
     loss_fn = torch.nn.CrossEntropyLoss()
 
     # Metrics
@@ -138,7 +140,7 @@ def run(model, **kwargs):
         epoch_loss = []
         epoch_accuracy = []
 
-        for input, labels in train_loader:
+        for input, labels in tqdm.tqdm(train_loader):
             print(".", end="")
 
             # Reshape input
@@ -168,6 +170,7 @@ def run(model, **kwargs):
 
             loss.backward()
             optimizer.step()
+            scheduler.step()
 
         print("")
         print("Train accuracy is {}".format(np.mean(epoch_accuracy)))
@@ -177,7 +180,7 @@ def run(model, **kwargs):
         epoch_loss = []
         epoch_accuracy = []
 
-        for input, labels in val_loader:
+        for input, labels in tqdm.tqdm(val_loader):
             print(".", end="")
             with torch.no_grad():
 
