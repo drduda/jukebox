@@ -11,8 +11,10 @@ def convert(filename):
         librosa.output.write_wav(filename.replace('mp3', 'wav'), y, sr)
     except NoBackendError:
         print("Couldn't convert {}".format(filename))
+    except ZeroDivisionError:
+        pass
 
-DATA_PATH = "C:/Users/Marko/PycharmProjects/jukebox/data/fma_small"
+DATA_PATH = "C:/Users/Marko/PycharmProjects/jukebox/data/fma_large"
 SAMPLE_RATE = 44100
 
 
