@@ -16,7 +16,7 @@ class ReduceOp(Enum):
         }[self]
 
 def is_available():
-    return dist.is_available()
+    return False
 
 def get_rank():
     if is_available():
