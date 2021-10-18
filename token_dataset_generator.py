@@ -12,7 +12,8 @@ from jukebox.hparams import Hyperparams, setup_hparams
 import fma.utils as utils
 import pandas as pd
 
-SIZE = 10000
+# The maximum token length of a 30s snippet
+SIZE = 11000
 
 def run(target, size, audio_dir):
     device = t.device('cuda' if t.cuda.is_available() else 'cpu')
@@ -27,7 +28,6 @@ def run(target, size, audio_dir):
     max_batch_size = 3 if model == "5b_lyrics" else 16
     hps.levels = 3
     hps.hop_fraction = [.5, .5, .125]
-
     vqvae, *priors = MODELS[model]
     vqvae = make_vqvae(setup_hparams(vqvae, dict(sample_length=1048576)), device)
 
@@ -36,30 +36,39 @@ def run(target, size, audio_dir):
     tracks = utils.load('/home/marko/data/fma_metadata/tracks.csv')
     subset = tracks.index[tracks['set', 'subset'] <= 'small']
     tracks = tracks.loc[subset]
+    if target is "genre":
+        # Get labels
+        labels_onehot = tracks['track', 'genre_top'].astype('category').cat.remove_unused_categories()
+        labels_onehot = labels_onehot.cat.codes
+        labels_onehot = pd.DataFrame(labels_onehot, index=tracks.index)
+        Y = labels_onehot[0]
+    else:
+        raise ValueError("Target unknown")
 
-    # Get labels
-    labels_onehot = tracks['track', 'genre_top'].astype('category').cat.remove_unused_categories()
-    labels_onehot = labels_onehot.cat.codes
-    labels_onehot = pd.DataFrame(labels_onehot, index=tracks.index)
 
     # Make the arrays
-    tracks_as_tokens = torch.zeros((len(tracks), SIZE))
-    tracks_length = torch.zeros(len(tracks))
-    target = torch.zeros(len(tracks))
+    tracks_as_tokens = torch.zeros((len(tracks), SIZE), dtype=torch.int)
+    tracks_length = torch.zeros(len(tracks), dtype=torch.int)
 
-    for idx, row in tqdm.tqdm(tracks.iterrows()):
+    for idx, (track_idx, row) in tqdm.tqdm(enumerate(tracks.iterrows())):
 
         #Get actual track
-        audio_path = utils.get_audio_path(audio_dir+'/fma_'+size, idx)
+        audio_path = utils.get_audio_path(audio_dir+'/fma_'+size, track_idx)
         track, sr = librosa.load(audio_path, sr=44100)
 
         with t.no_grad():
+            # Technical adjustments of the input
             track = torch.from_numpy(track).to(device)
             track = t.unsqueeze(track, 0)
             track = t.unsqueeze(track, -1)
 
-            zs = vqvae.encode(track, start_level=2, end_level=3, bs_chunks=track.shape[0])
-        pass
+            # Feed in Jukebox + technical adjustments
+            tokens = vqvae.encode(track, start_level=2, end_level=3, bs_chunks=track.shape[0])[0]
+            tokens = torch.squeeze(tokens)
+
+            # Put into the array
+            tracks_as_tokens[idx, :len(tokens)] = tokens
+            tracks_length[idx] = len(tokens)
 
 if __name__ == '__main__':
     fire.Fire(run)
