@@ -45,10 +45,9 @@ def run(target, size, audio_dir):
     else:
         raise ValueError("Target unknown")
 
-
     # Make the arrays
-    tracks_as_tokens = torch.zeros((len(tracks), SIZE), dtype=torch.int)
-    tracks_length = torch.zeros(len(tracks), dtype=torch.int)
+    tracks_as_tokens = torch.zeros((len(tracks), SIZE), dtype=torch.int16)
+    tracks_length = torch.zeros(len(tracks), dtype=torch.int16)
 
     for idx, (track_idx, row) in tqdm.tqdm(enumerate(tracks.iterrows())):
 
@@ -69,6 +68,12 @@ def run(target, size, audio_dir):
             # Put into the array
             tracks_as_tokens[idx, :len(tokens)] = tokens
             tracks_length[idx] = len(tokens)
+
+
+    saving_path = "tokens_ds_target_" + target + "_size_" + size + ".pt"
+    torch.save((tracks_as_tokens, tracks_length, Y), saving_path)
+    print("Saved as " + saving_path)
+
 
 if __name__ == '__main__':
     fire.Fire(run)
