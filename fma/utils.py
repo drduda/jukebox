@@ -344,15 +344,13 @@ def build_sample_loader(audio_dir, Y, loader):
 
                 batch_size = 0
                 for tid in tids:
+                    audio_path = get_audio_path(audio_dir, tid)
                     try:
-                        audio_path = get_audio_path(audio_dir, tid)
-                        audio_path = audio_path.replace("\\", "/")
                         self.X[batch_size] = self.loader.load(audio_path)
                         self.Y[batch_size] = Y.loc[tid]
                         batch_size += 1
                     except Exception as e:
-                        pass
-                        #print("\nIgnoring " + audio_path +" (error: " + str(e) +").")
+                        print("\nIgnoring " + audio_path +" (error: " + str(e) +").")
 
                 with self.lock2:
                     while (batch_current - self.batch_rearmost.value) % self.tids.size > self.batch_size:
