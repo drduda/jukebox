@@ -33,8 +33,8 @@ def run(target, size, audio_dir):
 
     # Get raw audio dataset
     # Get metadata
-    tracks = utils.load('/home/marko/data/fma_metadata/tracks.csv')
-    subset = tracks.index[tracks['set', 'subset'] <= 'small']
+    tracks = utils.load(audio_dir + '/fma_metadata/tracks.csv')
+    subset = tracks.index[tracks['set', 'subset'] <= size]
     tracks = tracks.loc[subset]
     if target is "genre":
         # Get labels
