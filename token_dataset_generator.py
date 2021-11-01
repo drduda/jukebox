@@ -14,9 +14,8 @@ import pandas as pd
 
 # The maximum token length of a 30s snippet
 SIZE = 11000
-BATCH_SIZE = 2
 
-def run(target, size, audio_dir):
+def run(target, size, audio_dir, batch_size):
     device = t.device('cuda' if t.cuda.is_available() else 'cpu')
 
     # Get models
@@ -49,44 +48,37 @@ def run(target, size, audio_dir):
     loader = utils.LibrosaLoader(sampling_rate=44100)
     SampleLoader = utils.build_sample_loader(audio_dir+'/fma_'+size, Y, loader)
     print('Dimensionality: {}'.format(loader.shape))
-    loader = SampleLoader(tracks.index, batch_size=BATCH_SIZE)
+    loader = SampleLoader(tracks.index, batch_size=batch_size)
 
     # Make the arrays
     tracks_as_tokens = torch.zeros((len(tracks), SIZE), dtype=torch.int16)
     tracks_length = torch.zeros(len(tracks), dtype=torch.int16)
 
-    for x, y in loader:
+    idx = 0
+    for x, y in tqdm.tqdm(loader):
         with torch.no_grad():
-            pass
-
-    for idx, (track_idx, row) in tqdm.tqdm(enumerate(tracks.iterrows())):
-
-        #Get actual track
-        audio_path = utils.get_audio_path(audio_dir+'/fma_'+size, track_idx)
-        track, sr = librosa.load(audio_path, sr=44100)
-
-        with t.no_grad():
-            # Technical adjustments of the input
-            track = torch.from_numpy(track).to(device)
-            track = t.unsqueeze(track, 0)
-            track = t.unsqueeze(track, -1)
+            x = t.from_numpy(x).to(device)
+            x = t.unsqueeze(x, -1)
 
             # Feed in Jukebox + technical adjustments
-            tokens = vqvae.encode(track, start_level=2, end_level=3, bs_chunks=track.shape[0])[0]
+            tokens = vqvae.encode(x, start_level=2, end_level=3, bs_chunks=x.shape[0])[0]
             tokens = torch.squeeze(tokens)
 
-            # Put into the array
-            tracks_as_tokens[idx, :len(tokens)] = tokens
-            tracks_length[idx] = len(tokens)
+            tracks_as_tokens[[range(idx, idx+batch_size)], :tokens.shape[1]] = tokens.short()
+            tracks_length[range(idx, idx+batch_size)] = tokens.shape[1]
+            idx = idx + batch_size
 
-        if idx % 100 == 0:
-            tracks_as_tokens.length = idx
-            saving_path = "tokens_ds_target_" + target + "_size_" + size + ".pt"
-            torch.save((tracks_as_tokens, tracks_length, Y), saving_path)
+            # Save every 4th batch
+            if (idx/batch_size) % 4 == 0:
+                tracks_as_tokens.length = idx
+                saving_path = "tokens_ds_target_" + target + "_size_" + size + ".pt"
+                torch.save((tracks_as_tokens, tracks_length, Y[0]), saving_path)
+
+
 
 
     saving_path = "tokens_ds_target_" + target + "_size_" + size + ".pt"
-    torch.save((tracks_as_tokens, tracks_length, Y), saving_path)
+    torch.save((tracks_as_tokens, tracks_length, Y[0]), saving_path)
     print("Saved as " + saving_path)
 
 
