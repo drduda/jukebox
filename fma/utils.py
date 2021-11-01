@@ -327,8 +327,7 @@ def build_sample_loader(audio_dir, Y, loader):
                 self.idx += 1
 
                 with self.lock1:
-                    if self.batch_foremost.value == 0:
-                        np.random.shuffle(self.tids)
+
 
                     batch_current = self.batch_foremost.value
                     if self.batch_foremost.value + self.batch_size < self.tids.size:
