@@ -69,6 +69,11 @@ def run(target, size, audio_dir):
             tracks_as_tokens[idx, :len(tokens)] = tokens
             tracks_length[idx] = len(tokens)
 
+        if idx % 100 == 0:
+            tracks_as_tokens.length = idx
+            saving_path = "tokens_ds_target_" + target + "_size_" + size + ".pt"
+            torch.save((tracks_as_tokens, tracks_length, Y), saving_path)
+
 
     saving_path = "tokens_ds_target_" + target + "_size_" + size + ".pt"
     torch.save((tracks_as_tokens, tracks_length, Y), saving_path)
