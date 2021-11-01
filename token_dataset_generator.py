@@ -14,6 +14,7 @@ import pandas as pd
 
 # The maximum token length of a 30s snippet
 SIZE = 11000
+BATCH_SIZE = 2
 
 def run(target, size, audio_dir):
     device = t.device('cuda' if t.cuda.is_available() else 'cpu')
@@ -41,13 +42,22 @@ def run(target, size, audio_dir):
         labels_onehot = tracks['track', 'genre_top'].astype('category').cat.remove_unused_categories()
         labels_onehot = labels_onehot.cat.codes
         labels_onehot = pd.DataFrame(labels_onehot, index=tracks.index)
-        Y = labels_onehot[0]
+        Y = labels_onehot
     else:
         raise ValueError("Target unknown")
+
+    loader = utils.LibrosaLoader(sampling_rate=44100)
+    SampleLoader = utils.build_sample_loader(audio_dir+'/fma_'+size, Y, loader)
+    print('Dimensionality: {}'.format(loader.shape))
+    loader = SampleLoader(tracks.index, batch_size=BATCH_SIZE)
 
     # Make the arrays
     tracks_as_tokens = torch.zeros((len(tracks), SIZE), dtype=torch.int16)
     tracks_length = torch.zeros(len(tracks), dtype=torch.int16)
+
+    for x, y in loader:
+        with torch.no_grad():
+            pass
 
     for idx, (track_idx, row) in tqdm.tqdm(enumerate(tracks.iterrows())):
 
