@@ -1,23 +1,21 @@
 import fire
 import torch
 import tqdm
-
+from jukebox.make_models import make_vqvae, make_prior, MODELS, make_model
+from jukebox.hparams import Hyperparams, setup_hparams
 import jukebox
 import torch as t
 import librosa
 import os
 from IPython.display import Audio
-from jukebox.make_models import make_vqvae, make_prior, MODELS, make_model
-from jukebox.hparams import Hyperparams, setup_hparams
-import fma.utils as utils
+import utils
+import fma.utils
 import pandas as pd
 
 # The maximum token length of a 30s snippet
 SIZE = 11000
 
-def run(target, size, audio_dir, batch_size):
-    device = t.device('cuda' if t.cuda.is_available() else 'cpu')
-
+def get_vq_vae(device):
     # Get models
     model = "1b_lyrics"
     hps = Hyperparams()
@@ -29,57 +27,42 @@ def run(target, size, audio_dir, batch_size):
     hps.levels = 3
     hps.hop_fraction = [.5, .5, .125]
     vqvae, *priors = MODELS[model]
-    vqvae = make_vqvae(setup_hparams(vqvae, dict(sample_length=1048576)), device)
+    return make_vqvae(setup_hparams(vqvae, dict(sample_length=1048576)), device)
 
-    # Get raw audio dataset
-    # Get metadata
-    tracks = utils.load(audio_dir + '/fma_metadata/tracks.csv')
-    subset = tracks.index[tracks['set', 'subset'] <= size]
-    tracks = tracks.loc[subset]
-    if target is "genre":
-        # Get labels
-        labels_onehot = tracks['track', 'genre_top'].astype('category').cat.remove_unused_categories()
-        labels_onehot = labels_onehot.cat.codes
-        labels_onehot = pd.DataFrame(labels_onehot, index=tracks.index)
-        Y = labels_onehot
-    else:
-        raise ValueError("Target unknown")
+def run(size, audio_dir, batch_size):
+    device = t.device('cuda' if t.cuda.is_available() else 'cpu')
+    vqvae = get_vq_vae(device)
 
-    loader = utils.LibrosaLoader(sampling_rate=44100)
-    SampleLoader = utils.build_sample_loader(audio_dir+'/fma_'+size, Y, loader)
-    print('Dimensionality: {}'.format(loader.shape))
-    loader = SampleLoader(tracks.index, batch_size=batch_size)
+    for split in ['training', 'validation', 'test']:
+        Y, loader = utils.get_dataloader(audio_dir, size, split, batch_size)
 
-    # Make the arrays
-    tracks_as_tokens = torch.zeros((len(tracks), SIZE), dtype=torch.int16)
-    tracks_length = torch.zeros(len(tracks), dtype=torch.int16)
+        # Make the arrays
+        tracks_as_tokens = torch.zeros((len(Y), SIZE), dtype=torch.int16)
+        tracks_length = torch.zeros(len(Y), dtype=torch.int16)
 
-    idx = 0
-    for x, y in tqdm.tqdm(loader):
-        with torch.no_grad():
-            x = t.from_numpy(x).to(device)
-            x = t.unsqueeze(x, -1)
+        idx = 0
+        for x, _ in tqdm.tqdm(loader):
+            with torch.no_grad():
+                x = t.from_numpy(x).to(device)
+                x = t.unsqueeze(x, -1)
 
-            # Feed in Jukebox + technical adjustments
-            tokens = vqvae.encode(x, start_level=2, end_level=3, bs_chunks=x.shape[0])[0]
-            tokens = torch.squeeze(tokens)
+                # Feed in Jukebox + technical adjustments
+                tokens = vqvae.encode(x, start_level=2, end_level=3, bs_chunks=x.shape[0])[0]
+                tokens = torch.squeeze(tokens)
 
-            tracks_as_tokens[[range(idx, idx+batch_size)], :tokens.shape[1]] = tokens.short()
-            tracks_length[range(idx, idx+batch_size)] = tokens.shape[1]
-            idx = idx + batch_size
+                tracks_as_tokens[[range(idx, idx+batch_size)], :tokens.shape[1]] = tokens.short()
+                tracks_length[range(idx, idx+batch_size)] = tokens.shape[1]
+                idx = idx + batch_size
 
-            # Save every 4th batch
-            if (idx/batch_size) % 4 == 0:
-                tracks_as_tokens.length = idx
-                saving_path = "tokens_ds_target_" + target + "_size_" + size + ".pt"
-                torch.save((tracks_as_tokens, tracks_length, Y[0]), saving_path)
+                # Save every 4th batch
+                if (idx/batch_size) % 4 == 0:
+                    tracks_as_tokens.length = idx
+                    saving_path = "tokens_ds_size_%s_split_%s.pt" % (size, split)
+                    torch.save((tracks_as_tokens, tracks_length, Y[0]), saving_path)
 
-
-
-
-    saving_path = "tokens_ds_target_" + target + "_size_" + size + ".pt"
-    torch.save((tracks_as_tokens, tracks_length, Y[0]), saving_path)
-    print("Saved as " + saving_path)
+        tracks_as_tokens.length = idx
+        saving_path = "tokens_ds_size_%s_split_%s.pt" % (size, split)
+        torch.save((tracks_as_tokens, tracks_length, Y[0]), saving_path)
 
 
 if __name__ == '__main__':
