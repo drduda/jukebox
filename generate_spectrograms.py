@@ -11,7 +11,7 @@ def run(fma_dir, output_dir, subset="small", n_fft=2048, hop_length=512, debug=F
     try:
         generate_spectrograms(fma_dir, output_dir, subset, n_fft, hop_length, logger)
     except TypeError as e:
-        logging.error(f"A TypeError occured!\n\n{e}")
+        logging.error(f"A TypeError occurred!\n\n{e}")
 
 
 if __name__ == "__main__":
