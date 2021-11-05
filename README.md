@@ -6,6 +6,6 @@ python token_dataset_generator.py --target=genre --size=medium --batch_size=8 --
 ```
 `target` can only be genre so far. Each record is one of 8 genres.
 
-`size` can be `small`, `medium` or `large` depending on the size of theFMA Dataset that should be converted. 
+`size` can be `small`, `medium` or `large` depending on the size of the FMA Dataset that should be converted. 
 
-`audio_dir` is the path to the directory where 'fma_metadata' and the fma_records are stored.
+`audio_dir` is the path to the directory where 'fma_metadata' and the fma_records are stored. Be aware that you cannot use ~ in the path!
