@@ -50,8 +50,8 @@ def run(size, audio_dir, batch_size):
                 tokens = vqvae.encode(x, start_level=2, end_level=3, bs_chunks=x.shape[0])[0]
                 tokens = torch.squeeze(tokens)
 
-                tracks_as_tokens[[range(idx, idx+batch_size)], :tokens.shape[1]] = tokens.short()
-                tracks_length[range(idx, idx+batch_size)] = tokens.shape[1]
+                tracks_as_tokens[[range(idx, idx+len(tokens))], :tokens.shape[1]] = tokens.short()
+                tracks_length[range(idx, idx+len(tokens))] = tokens.shape[1]
                 idx = idx + batch_size
 
                 # Save every 4th batch
