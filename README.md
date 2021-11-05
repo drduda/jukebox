@@ -2,7 +2,7 @@
 This repo provides code for converting the [FMA Dataset](https://github.com/mdeff/fma) to token sequences by using the encoder of [Jukebox by OpenAI](https://openai.com/blog/jukebox/). 
 
 ```
-python token_dataset_generator.py --target=genre --size=small --audio_dir=PATH_TO_FMA_DIR
+python token_dataset_generator.py --target=genre --size=medium --batch_size=8 --audio_dir=PATH_TO_FMA_DIR
 ```
 `target` can only be genre so far. Each record is one of 8 genres.
 
