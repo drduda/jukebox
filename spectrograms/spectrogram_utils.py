@@ -23,8 +23,8 @@ def load_spec(filename, logger=None):
     return None
 
 
-def gen_spec(filename, n_fft, hop_length, sr=None):
+def gen_spec(filename, n_fft, hop_length, sr=None, n_mels=None):
     x, sr = librosa.load(filename, sr=sr, mono=True)
     stft = np.abs(librosa.stft(x, n_fft=n_fft, hop_length=hop_length))
-    mel = librosa.feature.melspectrogram(sr=sr, S=stft ** 2)
+    mel = librosa.feature.melspectrogram(sr=sr, S=stft ** 2, n_mels=n_mels)
     return mel, sr
