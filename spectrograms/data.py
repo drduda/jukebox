@@ -82,7 +82,7 @@ class FmaSpectrogramGenreDataModule(pl.LightningDataModule):
         self.n_mels = n_mels
 
         # load metadata
-        extended_metadata_path = os.path.join(self.data_dir, f"fma_metadata/tracks_ext.csv")
+        extended_metadata_path = os.path.join(self.data_dir, f"fma_metadata/tracks_ext_{self.subset}_genre-top.csv")
         if os.path.isfile(extended_metadata_path):
             print(f"INFO: Loading extended metadata from {extended_metadata_path}")
             self.tracks = fma_utils.load(extended_metadata_path)
