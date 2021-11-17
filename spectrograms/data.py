@@ -67,10 +67,11 @@ class SpectrogramDataset(Dataset):
     def __getitem__(self, index) -> T_co:
         track = self.tracks.loc[index]
 
-        spec_dir = os.path.join(self.save_specs_dir, str(track['track_id'].values[0])[:3])
+        id_str = str(track['track_id'].values[0]).zfill(6)
+        spec_dir = os.path.join(self.save_specs_dir, id_str[:3])
         if not os.path.isdir(spec_dir):
             os.makedirs(spec_dir)
-        spec_path = os.path.join(spec_dir, f"{track['track_id'].values[0]}.spec")
+        spec_path = os.path.join(spec_dir, f"{id_str}.spec")
 
         # if possible and allowed use pre-generated spectrograms
         if not self.from_scratch and os.path.isfile(spec_path) and os.access(spec_path, os.R_OK):
