@@ -18,11 +18,11 @@ def generate_spectrograms(fma_dir, output_dir, subset="small", n_fft=2048, hop_l
         logger.debug('File to load: {}'.format(filename))
 
         try:
-            mel, sr = gen_spec(filename, n_fft, hop_length)
+            spec, sr = gen_spec(filename, n_fft, hop_length)
             output_filename = os.path.join(output_dir, os.path.basename(f"{os.path.splitext(filename)[0]}.pt"))
             if logger is not None:
                 logger.debug('File to save: {}'.format(output_filename))
-            save_spec(output_filename, mel, {"sr": sr, "hop_length": hop_length, "n_fft": n_fft})
+            save_spec(output_filename, spec, {"sr": sr, "hop_length": hop_length, "n_fft": n_fft})
         except FileNotFoundError as e:
             if logger is not None:
                 logger.error(f"File not found: \n\n{e}")
