@@ -9,7 +9,7 @@ setuptools~=52.0.0
 numpy~=1.20.3
 pandas~=1.2.4
 scipy~=1.6.2
-apex~=0.1
+apex
 pillow~=8.0.1
 scikit-learn~=0.24.1
 transformers~=4.8.2

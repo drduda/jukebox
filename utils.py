@@ -1,5 +1,6 @@
 import fma.utils
 import pandas as pd
+import os
 
 
 
@@ -16,7 +17,7 @@ def get_dataloader(audio_dir, size, split, batch_size):
     """
     # Get raw audio dataset
     # Get metadata
-    tracks = fma.utils.load(audio_dir + '/fma_metadata/tracks.csv')
+    tracks = fma.utils.load(os.path.join(audio_dir + 'fma_metadata/tracks.csv'))
 
     subset = tracks.index[tracks['set', 'subset'] <= size]
     tracks = tracks.loc[subset]
@@ -32,7 +33,7 @@ def get_dataloader(audio_dir, size, split, batch_size):
     Y = labels
 
     loader = fma.utils.LibrosaLoader(sampling_rate=44100)
-    SampleLoader = fma.utils.build_sample_loader(audio_dir + '/fma_' + size, Y, loader)
+    SampleLoader = fma.utils.build_sample_loader(os.path.join(audio_dir, f"fma_{size}"), Y, loader)
     print('Dimensionality: {}'.format(loader.shape))
     loader = SampleLoader(tracks.index, batch_size=batch_size)
     return Y, loader

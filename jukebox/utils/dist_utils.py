@@ -52,7 +52,8 @@ def setup_dist_from_mpi(
         local_rank = 0
 
         device = torch.device("cuda", local_rank) if use_cuda else torch.device("cpu")
-        torch.cuda.set_device(local_rank)
+        if use_cuda:
+            torch.cuda.set_device(local_rank)
 
         return mpi_rank, local_rank, device
 
