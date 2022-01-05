@@ -92,8 +92,6 @@ class JukeboxEncoder:
             zs.append(z)
             xs_quantised.append(x_quantised)
 
-        #zs, xs_quantised, _, _ = self.vqvae.bottleneck(xs)
-
         return zs, xs_quantised
 
     def encode(self, filepath, duration):
@@ -106,6 +104,9 @@ class JukeboxEncoder:
         zs = [zs_i.detach().cpu() for zs_i in zs]
         xs_quantised = [xs_q_i.detach().cpu() for xs_q_i in xs_quantised]
         return zs, xs_quantised
+
+    def get_emb_width(self):
+        return self.vqvae.bottleneck.level_blocks[0].emb_width
 
 
 if __name__ == '__main__':

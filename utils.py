@@ -17,7 +17,7 @@ def get_dataloader(audio_dir, size, split, batch_size):
     """
     # Get raw audio dataset
     # Get metadata
-    tracks = fma.utils.load(os.path.join(audio_dir + 'fma_metadata/tracks.csv'))
+    tracks = fma.utils.load(os.path.join(audio_dir, 'fma_metadata/tracks.csv'))
 
     subset = tracks.index[tracks['set', 'subset'] <= size]
     tracks = tracks.loc[subset]
