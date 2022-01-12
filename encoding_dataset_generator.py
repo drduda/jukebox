@@ -13,7 +13,7 @@ def run(size, audio_dir, batch_size, output_dir='.'):
     encoder = JukeboxEncoder()
 
     for split in ['training', 'validation', 'test']:
-        output_path = os.path.join(output_dir, f"enbding_dataset_{size}_{split}.pt")
+        output_path = os.path.join(output_dir, f"embedding_dataset_{size}_{split}.pt")
         Y, loader = utils.get_dataloader(audio_dir, size, split, batch_size)
 
         # Make the arrays
@@ -24,6 +24,9 @@ def run(size, audio_dir, batch_size, output_dir='.'):
             with torch.no_grad():
                 x = t.from_numpy(x).to(device)
                 x = t.unsqueeze(x, -1)
+                if x.nelement() == 0:
+                    print("INFO: Skipping empty tensor")
+                    continue
 
                 # Feed in Jukebox + technical adjustments
                 zs, encodings_quantized = encoder.encode_sample(x, start_level=2, end_level=3)
@@ -34,9 +37,9 @@ def run(size, audio_dir, batch_size, output_dir='.'):
 
                 # Save as a backup on every 4th iteration
                 if idx % 4 == 0:
-                    torch.save((torch.cat(tracks_embedded, dim=0), tracks_length, Y[0]), output_path)
+                    torch.save((torch.cat(tracks_embedded, dim=0), tracks_length, Y[0 :len(tracks_embedded)]), output_path)
 
-        torch.save((torch.cat(tracks_embedded, dim=0), tracks_length, Y[0]), output_path)
+        torch.save((torch.cat(tracks_embedded, dim=0), tracks_length, Y[0, :len(tracks_embedded)]), output_path)
 
 
 if __name__ == '__main__':

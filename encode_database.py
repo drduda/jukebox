@@ -88,7 +88,7 @@ class JukeboxEncoder:
             encoder = self.vqvae.encoders[level]
             x_out = encoder(x_in)
             xs.append(x_out[-1])
-            z, x_quantised, _, _ = self.vqvae.bottleneck.level_blocks[level](x_out[-1])
+            z, x_quantised, _, _ = self.vqvae.bottleneck.level_blocks[level](x_out[-1], update_k=False)
             zs.append(z)
             xs_quantised.append(x_quantised)
 
