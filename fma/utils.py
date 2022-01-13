@@ -328,7 +328,6 @@ def build_sample_loader(audio_dir, Y, loader):
 
                 with self.lock1:
 
-
                     batch_current = self.batch_foremost.value
                     if self.batch_foremost.value + self.batch_size < self.tids.size:
                         batch_size = self.batch_size

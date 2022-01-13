@@ -9,6 +9,11 @@ from encode_database import JukeboxEncoder
 
 
 def run(size, audio_dir, batch_size, output_dir='.'):
+    if audio_dir.startswith('~'):
+        audio_dir = os.path.expanduser(audio_dir)
+    if output_dir.startswith('~'):
+        output_dir = os.path.expanduser(output_dir)
+
     device = t.device('cuda' if t.cuda.is_available() else 'cpu')
     encoder = JukeboxEncoder()
 
