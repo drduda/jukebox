@@ -26,6 +26,9 @@ def get_dataloader(audio_dir, size, split, batch_size):
     subset = tracks.index[tracks['set', 'split'] == split]
     tracks = tracks.loc[subset]
 
+    if tracks.index.size == 0:
+        raise ValueError(f"No tracks found for size {size} and split {split}")
+
     # Get labels
     labels = tracks['track', 'genre_top'].astype('category').cat.remove_unused_categories()
     labels = labels.cat.codes
