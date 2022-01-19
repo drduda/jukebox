@@ -42,9 +42,9 @@ def run(size, audio_dir, batch_size, output_dir='.'):
 
                 # Save as a backup on every 4th iteration
                 if idx % 4 == 0:
-                    torch.save((torch.cat(tracks_embedded, dim=0), tracks_length, Y[0 :len(tracks_embedded)]), output_path)
+                    torch.save((torch.cat(tracks_embedded, dim=0), tracks_length, Y[:len(tracks_embedded)]), output_path)
 
-        torch.save((torch.cat(tracks_embedded, dim=0), tracks_length, Y[0, :len(tracks_embedded)]), output_path)
+        torch.save((torch.cat(tracks_embedded, dim=0), tracks_length, Y[:len(tracks_embedded)]), output_path)
 
 
 if __name__ == '__main__':

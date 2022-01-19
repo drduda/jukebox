@@ -63,7 +63,7 @@ def _remove_nonexistent_tracks(tracks: pd.DataFrame, audio_dir: str):
             tracks.drop(idx, inplace=True)
             counter += 1
     tracks.set_index('track_id', inplace=True)
-    print(f"INFO: Removed {counter} tracks without corresponding .mp3 file.")
+    print(f"INFO: Removed {counter} tracks without corresponding .mp3 file. Still got {len(tracks)} tracks left.")
     if not os.path.exists(os.path.dirname(cache_path)):
         os.makedirs(os.path.dirname(cache_path), exist_ok=True)
     tracks.to_csv(cache_path)
