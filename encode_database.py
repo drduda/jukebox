@@ -85,10 +85,14 @@ class JukeboxEncoder:
         xs_quantised = []
         zs = []
         for level in range(start_level, end_level):
-            encoder = self.vqvae.encoders[level]
-            x_out = encoder(x_in)
+            # encode
+            level_encoder = self.vqvae.encoders[level]
+            x_out = level_encoder(x_in)
             xs.append(x_out[-1])
+
+            # quantise encoding
             z, x_quantised, _, _ = self.vqvae.bottleneck.level_blocks[level](x_out[-1], update_k=False)
+            x_quantised = x_quantised.detach()
             zs.append(z)
             xs_quantised.append(x_quantised)
 
