@@ -17,7 +17,8 @@ def get_dataloader(audio_dir, size, split, batch_size):
     """
     # Get raw audio dataset
     # Get metadata
-    tracks = fma.utils.load(os.path.join(audio_dir, 'fma_metadata/tracks.csv'))
+    tracks_path = os.path.join(audio_dir, 'fma_metadata/tracks.csv')
+    tracks = fma.utils.load(tracks_path)
     tracks = _remove_nonexistent_tracks(tracks, os.path.join(audio_dir, f"fma_{size}"))
 
     subset = tracks.index[tracks['set', 'subset'] <= size]
@@ -27,7 +28,7 @@ def get_dataloader(audio_dir, size, split, batch_size):
     tracks = tracks.loc[subset]
 
     if tracks.index.size == 0:
-        raise ValueError(f"No tracks found for size {size} and split {split}")
+        raise ValueError(f"No tracks found for size {size} and split {split} in path {tracks_path}")
 
     # Get labels
     labels = tracks['track', 'genre_top'].astype('category').cat.remove_unused_categories()
