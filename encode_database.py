@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 class JukeboxEncoder:
     def __init__(self):
-        rank, local_rank, self.device = setup_dist_from_mpi(backend='gloo')  # TODO nccl backend not available under windows
+        rank, local_rank, self.device = setup_dist_from_mpi(backend='nccl')
 
         model = "1b_lyrics"  # "5b_lyrics" # or "1b_lyrics"
         hps = Hyperparams()
