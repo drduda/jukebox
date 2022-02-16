@@ -35,7 +35,7 @@ def run(size, audio_dir, batch_size, output_dir='.'):
 
                 # Feed in Jukebox + technical adjustments
                 zs, encodings_quantized = encoder.encode_sample(x, start_level=2, end_level=3)
-                es = torch.squeeze(encodings_quantized[0], 0).t().unsqueeze(0)
+                es = encodings_quantized[0].transpose(1, 2)
 
                 tracks_embedded.append(es)
                 tracks_length.append(es.shape[1])
